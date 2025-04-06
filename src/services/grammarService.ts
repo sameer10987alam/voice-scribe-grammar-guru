@@ -75,6 +75,25 @@ const commonGrammarPatterns = [
   }
 ];
 
+// Add filler words patterns to detect less formal speech patterns
+const fillerWordsPatterns = [
+  { pattern: /\blike\b/gi, value: -0.05 },
+  { pattern: /\bum\b|\buh\b/gi, value: -0.1 },
+  { pattern: /\byou know\b/gi, value: -0.05 },
+  { pattern: /\bbasically\b/gi, value: -0.03 },
+  { pattern: /\bactually\b/gi, value: -0.02 },
+  { pattern: /\bi mean\b/gi, value: -0.04 }
+];
+
+// Positive grammar patterns (phrases showing advanced language use)
+const positivePatterns = [
+  { pattern: /\b(nevertheless|furthermore|consequently|moreover)\b/gi, value: 0.15 },
+  { pattern: /\b(in addition to|as well as|not only.*but also)\b/gi, value: 0.1 },
+  { pattern: /\b(however|therefore|thus|hence)\b/gi, value: 0.08 },
+  { pattern: /\b(despite|in spite of|notwithstanding)\b/gi, value: 0.12 },
+  { pattern: /\b(regarding|concerning|with respect to)\b/gi, value: 0.08 }
+];
+
 // Simulates grammar analysis of text
 export const analyzeGrammar = async (text: string): Promise<{
   issues: GrammarIssue[];
@@ -83,6 +102,23 @@ export const analyzeGrammar = async (text: string): Promise<{
 }> => {
   return new Promise((resolve) => {
     setTimeout(() => {
+      // Make sure we have text to analyze
+      if (!text || text.trim().length < 10) {
+        // For very short texts, provide a baseline result
+        resolve({
+          issues: [],
+          metrics: [
+            { name: "Complexity", score: 2.5 },
+            { name: "Coherence", score: 2.5 },
+            { name: "Fluency", score: 2.5 },
+            { name: "Syntax", score: 2.5 },
+            { name: "Vocabulary", score: 2.5 }
+          ],
+          score: 2.5
+        });
+        return;
+      }
+      
       // Find grammar issues (simulated)
       const issues: GrammarIssue[] = [];
       
@@ -143,20 +179,45 @@ export const analyzeGrammar = async (text: string): Promise<{
       const transitionWords = ['however', 'therefore', 'consequently', 'moreover', 'furthermore'];
       const transitionCount = transitionWords.reduce((count, word) => 
         count + (text.toLowerCase().match(new RegExp(`\\b${word}\\b`, 'g')) || []).length, 0);
-      const coherenceScore = 3 + (transitionCount > 0 ? 0.5 : 0) + (avgWordsPerSentence > 5 ? 0.5 : 0);
       
-      // Fluency affected by grammar issues
-      const fluencyBase = 4;
-      const fluencyScore = Math.max(1, fluencyBase - (issues.length * 0.4));
+      // Add randomization factor based on text length and characteristics
+      const textComplexityFactor = (text.length % 13) / 10; // Adds variety based on text length
+      const sentenceVarietyFactor = sentences.length > 3 ? (sentences.length % 5) / 10 : 0;
+      
+      // Calculate positive and negative factors based on patterns
+      let fillerWordsPenalty = 0;
+      fillerWordsPatterns.forEach(({ pattern, value }) => {
+        const matches = text.match(pattern);
+        if (matches) {
+          fillerWordsPenalty += value * matches.length;
+        }
+      });
+      
+      let advancedLanguageBonus = 0;
+      positivePatterns.forEach(({ pattern, value }) => {
+        const matches = text.match(pattern);
+        if (matches) {
+          advancedLanguageBonus += value * matches.length;
+        }
+      });
+      
+      const coherenceScore = Math.min(5, Math.max(1, 3 + (transitionCount > 0 ? 0.5 : 0) + 
+                                               (avgWordsPerSentence > 5 ? 0.5 : 0) +
+                                               sentenceVarietyFactor + 
+                                               (advancedLanguageBonus * 0.5)));
+      
+      // Fluency affected by grammar issues and filler words
+      const fluencyBase = 3.5 + textComplexityFactor;
+      const fluencyScore = Math.min(5, Math.max(1, fluencyBase - (issues.length * 0.3) + fillerWordsPenalty));
       
       // Syntax directly impacted by grammar issues
-      const syntaxBase = 4;
-      const syntaxScore = Math.max(1, syntaxBase - (issues.length * 0.5));
+      const syntaxBase = 3.7 + sentenceVarietyFactor;
+      const syntaxScore = Math.min(5, Math.max(1, syntaxBase - (issues.length * 0.4)));
       
       // Vocabulary assessment
       const uniqueWords = new Set(words.map(w => w.toLowerCase()));
       const lexicalDiversity = words.length > 0 ? uniqueWords.size / words.length : 0;
-      const vocabularyScore = 2.5 + (lexicalDiversity > 0.7 ? 1.5 : lexicalDiversity > 0.5 ? 1 : 0.5);
+      const vocabularyScore = Math.min(5, Math.max(1, 2.5 + (lexicalDiversity > 0.7 ? 1.5 : lexicalDiversity > 0.5 ? 1 : 0.5) + advancedLanguageBonus));
       
       const metrics: GrammarMetrics[] = [
         { name: "Complexity", score: parseFloat(complexityScore.toFixed(1)) },
@@ -182,8 +243,15 @@ export const analyzeGrammar = async (text: string): Promise<{
       
       // Apply issue penalty, but make it more gradual
       const issuePenalty = Math.min(0.5, issues.length * 0.1);
-      const overallScore = Math.min(5, Math.max(1, weightedSum * (1 - issuePenalty)));
       
+      // Add random variance to make scores more realistic (controlled randomness)
+      const randomVariance = ((Math.sin(text.length) + 1) / 2) * 0.4 - 0.2; // Range: -0.2 to 0.2
+      
+      // Calculate overall score with variance
+      const rawScore = weightedSum * (1 - issuePenalty) + randomVariance;
+      const overallScore = Math.min(5, Math.max(1, rawScore));
+      
+      // Make sure the score is displayed with one decimal point
       resolve({
         issues,
         metrics,
