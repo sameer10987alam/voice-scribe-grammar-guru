@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Download, Upload } from 'lucide-react';
+import { Download, Upload, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 interface SubmissionEntry {
