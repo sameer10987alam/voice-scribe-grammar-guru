@@ -15,7 +15,7 @@ export interface GrammarMetrics {
   score: number;
 }
 
-// Common grammar issues for simulation
+// Expanded grammar issues for more accurate simulation
 const commonGrammarPatterns = [
   {
     pattern: /\b(has|have)\s+\b(went|ran|came|ate|saw)\b/gi,
@@ -41,6 +41,37 @@ const commonGrammarPatterns = [
     pattern: /\b(more|less)\s+(easier|harder|better|worse|faster|slower)\b/gi,
     issue: "Double comparison",
     suggestion: "Use either 'more difficult' or 'harder', not both"
+  },
+  // Additional patterns for improved accuracy
+  {
+    pattern: /\b(i|we|they|you)\s+(is|was)\b/gi,
+    issue: "Subject-verb agreement error",
+    suggestion: "Use 'am/are/were' with these subjects"
+  },
+  {
+    pattern: /\b(she|he|it)\s+(am|are|were)\b/gi,
+    issue: "Subject-verb agreement error",
+    suggestion: "Use 'is/was' with these subjects"
+  },
+  {
+    pattern: /\b(a)\s+([aeiou]\w+)\b/gi,
+    issue: "Incorrect article usage",
+    suggestion: "Use 'an' before words starting with vowel sounds"
+  },
+  {
+    pattern: /\b(an)\s+([^aeiou]\w+)\b/gi,
+    issue: "Incorrect article usage",
+    suggestion: "Use 'a' before words starting with consonant sounds"
+  },
+  {
+    pattern: /\b(less)\s+(\w+s)\b/gi,
+    issue: "Incorrect quantifier with countable noun",
+    suggestion: "Use 'fewer' with countable nouns"
+  },
+  {
+    pattern: /\bthere\s+(are|were)\s+(\w+)\b/gi,
+    issue: "Possible 'there' agreement error",
+    suggestion: "Check if singular or plural form is needed"
   }
 ];
 
@@ -60,67 +91,98 @@ export const analyzeGrammar = async (text: string): Promise<{
         const matches = text.match(pattern);
         if (matches) {
           matches.forEach(match => {
-            issues.push({
-              text: match,
-              issue,
-              suggestion
-            });
+            // Check if this exact issue has already been added
+            const isDuplicate = issues.some(existingIssue => 
+              existingIssue.text === match && existingIssue.issue === issue
+            );
+            
+            if (!isDuplicate) {
+              issues.push({
+                text: match,
+                issue,
+                suggestion
+              });
+            }
           });
         }
       });
       
-      // For demo purposes, add random issues if none found
-      if (issues.length === 0 && Math.random() > 0.3) {
-        const randomIssues = [
-          {
-            text: "they was",
-            issue: "Subject-verb agreement error",
-            suggestion: "they were"
-          },
-          {
-            text: "didn't went",
-            issue: "Double past tense after negation",
-            suggestion: "didn't go"
-          },
-          {
-            text: "more easier",
-            issue: "Double comparison",
-            suggestion: "easier" 
-          }
-        ];
+      // For demo purposes, add contextual issues based on text content
+      if (issues.length === 0 && text.length > 30) {
+        // More realistic issue detection based on text content
+        if (text.toLowerCase().includes("i think") || text.toLowerCase().includes("i believe")) {
+          issues.push({
+            text: text.toLowerCase().includes("i think") ? "i think" : "i believe",
+            issue: "Filler phrase - reduces clarity",
+            suggestion: "Consider removing or rephrasing for more direct statement"
+          });
+        }
         
-        // Add 0-2 random issues
-        const numIssues = Math.floor(Math.random() * 3);
-        for (let i = 0; i < numIssues; i++) {
-          if (randomIssues[i] && !text.includes(randomIssues[i].text)) {
-            issues.push(randomIssues[i]);
-          }
+        if (text.toLowerCase().includes("very") || text.toLowerCase().includes("really")) {
+          issues.push({
+            text: text.toLowerCase().includes("very") ? "very" : "really",
+            issue: "Vague intensifier",
+            suggestion: "Use more specific descriptive language"
+          });
         }
       }
       
-      // Calculate metrics (in a real system, these would be calculated using NLP analysis)
-      const complexityScore = 2 + Math.random() * 3; // 2-5
-      const coherenceScore = 2.5 + Math.random() * 2.5; // 2.5-5
-      const fluencyScore = 2 + Math.random() * 3; // 2-5
-      const syntaxScore = 2 + Math.random() * 3; // 2-5
-      const vocabularyScore = 2.5 + Math.random() * 2.5; // 2.5-5
+      // Calculate metrics using a more sophisticated approach
+      // Calculate text complexity factors
+      const words = text.split(/\s+/).filter(word => word.length > 0);
+      const sentences = text.split(/[.!?]+/).filter(sentence => sentence.length > 0);
+      const avgWordsPerSentence = sentences.length > 0 ? words.length / sentences.length : 0;
+      const longWordCount = words.filter(word => word.length > 6).length;
+      const complexityRatio = words.length > 0 ? longWordCount / words.length : 0;
       
-      // Adjust scores based on number of issues
-      const issueDeduction = issues.length * 0.3;
+      // Base scores on text characteristics and error count
+      let complexityScore = 3 + (avgWordsPerSentence > 12 ? 1 : 0) + (complexityRatio > 0.2 ? 1 : 0);
+      complexityScore = Math.min(5, Math.max(1, complexityScore));
+      
+      // Coherence based on sentence structure indicators
+      const transitionWords = ['however', 'therefore', 'consequently', 'moreover', 'furthermore'];
+      const transitionCount = transitionWords.reduce((count, word) => 
+        count + (text.toLowerCase().match(new RegExp(`\\b${word}\\b`, 'g')) || []).length, 0);
+      const coherenceScore = 3 + (transitionCount > 0 ? 0.5 : 0) + (avgWordsPerSentence > 5 ? 0.5 : 0);
+      
+      // Fluency affected by grammar issues
+      const fluencyBase = 4;
+      const fluencyScore = Math.max(1, fluencyBase - (issues.length * 0.4));
+      
+      // Syntax directly impacted by grammar issues
+      const syntaxBase = 4;
+      const syntaxScore = Math.max(1, syntaxBase - (issues.length * 0.5));
+      
+      // Vocabulary assessment
+      const uniqueWords = new Set(words.map(w => w.toLowerCase()));
+      const lexicalDiversity = words.length > 0 ? uniqueWords.size / words.length : 0;
+      const vocabularyScore = 2.5 + (lexicalDiversity > 0.7 ? 1.5 : lexicalDiversity > 0.5 ? 1 : 0.5);
       
       const metrics: GrammarMetrics[] = [
-        { name: "Complexity", score: Math.max(1, complexityScore - issueDeduction * 0.1) },
-        { name: "Coherence", score: Math.max(1, coherenceScore - issueDeduction * 0.05) },
-        { name: "Fluency", score: Math.max(1, fluencyScore - issueDeduction * 0.2) },
-        { name: "Syntax", score: Math.max(1, syntaxScore - issueDeduction * 0.25) },
-        { name: "Vocabulary", score: Math.max(1, vocabularyScore - issueDeduction * 0.1) }
+        { name: "Complexity", score: parseFloat(complexityScore.toFixed(1)) },
+        { name: "Coherence", score: parseFloat(coherenceScore.toFixed(1)) },
+        { name: "Fluency", score: parseFloat(fluencyScore.toFixed(1)) },
+        { name: "Syntax", score: parseFloat(syntaxScore.toFixed(1)) },
+        { name: "Vocabulary", score: parseFloat(vocabularyScore.toFixed(1)) }
       ];
       
-      // Calculate overall score (in real system would use a weighted algorithm)
-      const overallScore = Math.min(5, Math.max(1, 
-        (metrics.reduce((sum, metric) => sum + metric.score, 0) / metrics.length) * 
-        (1 - (issues.length * 0.08)) // Reduce score based on number of issues
-      ));
+      // Calculate weighted overall score
+      // Weight syntax and fluency more heavily as they directly reflect grammar
+      const weights = {
+        Complexity: 0.15,
+        Coherence: 0.15,
+        Fluency: 0.3,
+        Syntax: 0.3,
+        Vocabulary: 0.1
+      };
+      
+      const weightedSum = metrics.reduce((sum, metric) => {
+        return sum + (metric.score * weights[metric.name as keyof typeof weights]);
+      }, 0);
+      
+      // Apply issue penalty, but make it more gradual
+      const issuePenalty = Math.min(0.5, issues.length * 0.1);
+      const overallScore = Math.min(5, Math.max(1, weightedSum * (1 - issuePenalty)));
       
       resolve({
         issues,
